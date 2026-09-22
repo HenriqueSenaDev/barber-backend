@@ -11,7 +11,7 @@ export const listBarbersQuerySchema = z.object({
     })
     .optional()
     .transform((val) => (val === undefined ? true : val === 'true')),
-});
+}).strict();
 
 export const createBarberBodySchema = z.object({
   name: z.string().min(1, { message: 'O nome é obrigatório' }),
@@ -25,7 +25,7 @@ export const createBarberBodySchema = z.object({
   experience: z.string().optional().nullable(),
   tags: z.string().optional().nullable(),
   isActive: z.boolean({ invalid_type_error: 'O campo isActive deve ser booleano' }).optional().default(true),
-});
+}).strict();
 
 export const updateBarberBodySchema = z.object({
   name: z.string().min(1, { message: 'O nome não pode ser vazio' }).optional(),
@@ -39,4 +39,4 @@ export const updateBarberBodySchema = z.object({
   experience: z.string().optional().nullable(),
   tags: z.string().optional().nullable(),
   isActive: z.boolean({ invalid_type_error: 'O campo isActive deve ser booleano' }).optional(),
-});
+}).strict();
