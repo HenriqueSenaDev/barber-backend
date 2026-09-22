@@ -1,0 +1,889 @@
+openapi: 3.0.3
+info:
+  title: BarberPro API
+  description: >
+    API RESTful para sistema de agendamento e gerenciamento de barbearia (BarberPro).
+    Atende tanto o aplicativo mobile dos clientes quanto o painel administrativo.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desenvolvimento Local
+
+tags:
+  - name: Auth
+    description: Autenticação de clientes e administradores
+  - name: Customers
+    description: Gerenciamento e consulta de clientes
+  - name: Barbers
+    description: Gerenciamento e listagem de barbeiros/equipe
+  - name: BarberServices
+    description: Gerenciamento e listagem do catálogo de serviços
+  - name: Appointments
+    description: Gerenciamento, consulta e criação de agendamentos
+
+paths:
+  # ==========================================
+  # AUTH
+  # ==========================================
+  /auth/customer:
+    post:
+      tags:
+        - Auth
+      summary: Autenticação / Registro do Cliente
+      description: Realiza login ou cria cadastro automaticamente caso o telefone ainda não exista.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - phone
+              properties:
+                name:
+                  type: string
+                  example: "João Silva"
+                phone:
+                  type: string
+                  example: "11987654321"
+      responses:
+        '200':
+          description: Autenticado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customer:
+                    $ref: '#/components/schemas/Customer'
+                  token:
+                    type: string
+                    example: "jwt_token_example"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/admin:
+    post:
+      tags:
+        - Auth
+      summary: Autenticação do Administrador
+      description: Realiza login administrativo via senha.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+                  example: "admin123"
+      responses:
+        '200':
+          description: Login de administrador realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  admin:
+                    $ref: '#/components/schemas/Admin'
+                  token:
+                    type: string
+                    example: "jwt_token_example"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================
+  # CUSTOMERS
+  # ==========================================
+  /customers:
+    get:
+      tags:
+        - Customers
+      summary: Listar clientes cadastrados
+      description: Retorna lista de clientes. Acesso restrito ao administrador com suporte a busca textual por nome ou telefone.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Termo de busca por nome ou telefone
+      responses:
+        '200':
+          description: Lista de clientes cadastrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerWithStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /customers/{id}:
+    get:
+      tags:
+        - Customers
+      summary: Buscar cliente por ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Detalhes do cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerWithStats'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # BARBERS
+  # ==========================================
+  /barbers:
+    get:
+      tags:
+        - Barbers
+      summary: Listar barbeiros da equipe
+      description: Retorna todos os profissionais disponíveis na barbearia.
+      parameters:
+        - in: query
+          name: activeOnly
+          schema:
+            type: boolean
+            default: true
+          description: Filtrar apenas barbeiros ativos
+      responses:
+        '200':
+          description: Lista de barbeiros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Barber'
+    post:
+      tags:
+        - Barbers
+      summary: Cadastrar novo barbeiro
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBarberInput'
+      responses:
+        '201':
+          description: Barbeiro cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barber'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /barbers/{id}:
+    get:
+      tags:
+        - Barbers
+      summary: Buscar barbeiro por ID
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Detalhes do barbeiro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barber'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Barbers
+      summary: Atualizar barbeiro
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBarberInput'
+      responses:
+        '200':
+          description: Barbeiro atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barber'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags:
+        - Barbers
+      summary: Remover ou inativar barbeiro
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Barbeiro removido com sucesso
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================
+  # BARBER SERVICES
+  # ==========================================
+  /barber-services:
+    get:
+      tags:
+        - BarberServices
+      summary: Listar serviços da barbearia
+      description: Retorna o catálogo de serviços oferecidos (ex.: Corte Tradicional, Barba, Pigmentação).
+      parameters:
+        - in: query
+          name: activeOnly
+          schema:
+            type: boolean
+            default: true
+          description: Filtrar apenas serviços ativos
+      responses:
+        '200':
+          description: Lista de serviços
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BarberService'
+    post:
+      tags:
+        - BarberServices
+      summary: Cadastrar novo serviço
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBarberServiceInput'
+      responses:
+        '201':
+          description: Serviço cadastrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarberService'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /barber-services/{id}:
+    get:
+      tags:
+        - BarberServices
+      summary: Buscar serviço por ID
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Detalhes do serviço
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarberService'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - BarberServices
+      summary: Atualizar serviço
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBarberServiceInput'
+      responses:
+        '200':
+          description: Serviço atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BarberService'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags:
+        - BarberServices
+      summary: Remover ou inativar serviço
+      description: Acesso restrito ao administrador.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Serviço removido com sucesso
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================
+  # APPOINTMENTS
+  # ==========================================
+  /appointments:
+    get:
+      tags:
+        - Appointments
+      summary: Listar agendamentos
+      description: >
+        Lista agendamentos com suporte a filtros por status, data, barbeiro ou cliente.
+        Pode ser acessado por clientes (filtrando os seus próprios) ou administrador (visão geral).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+          description: Filtrar por status (PENDING, CONFIRMED, COMPLETED, CANCELED)
+        - in: query
+          name: customerId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar agendamentos de um cliente específico
+        - in: query
+          name: barberId
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar agendamentos de um barbeiro específico
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          description: "Data específica no formato AAAA-MM-DD (ex: 2026-09-20)"
+      responses:
+        '200':
+          description: Lista de agendamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Appointments
+      summary: Criar novo agendamento
+      description: Cria um agendamento com base no cliente, serviço, barbeiro (opcional) e horário selecionado.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentInput'
+      responses:
+        '201':
+          description: Agendamento criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Conflito de horário (horário indisponível para o barbeiro)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointments/available-slots:
+    get:
+      tags:
+        - Appointments
+      summary: Consultar horários disponíveis
+      description: Retorna os intervalos de horários disponíveis em um determinado dia para um barbeiro (ou geral).
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2026-09-20"
+        - in: query
+          name: barberId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: barberServiceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de horários disponíveis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                    example: "2026-09-20"
+                  availableSlots:
+                    type: array
+                    items:
+                      type: string
+                      example: "09:00"
+
+  /appointments/{id}:
+    get:
+      tags:
+        - Appointments
+      summary: Buscar agendamento por ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Detalhes do agendamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Appointments
+      summary: Apagar agendamento
+      description: Acesso administrativo para exclusão definitiva.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Agendamento removido com sucesso
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /appointments/{id}/status:
+    patch:
+      tags:
+        - Appointments
+      summary: Atualizar status do agendamento
+      description: Permite confirmar, concluir ou cancelar um agendamento.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  $ref: '#/components/schemas/AppointmentStatus'
+      responses:
+        '200':
+          description: Status atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      description: Identificador único UUID
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Dados inválidos enviados na requisição
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Não autorizado ou credenciais inválidas
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    AppointmentStatus:
+      type: string
+      enum:
+        - PENDING
+        - CONFIRMED
+        - COMPLETED
+        - CANCELED
+      example: CONFIRMED
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        name:
+          type: string
+          example: "João Silva"
+        phone:
+          type: string
+          example: "11987654321"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CustomerWithStats:
+      allOf:
+        - $ref: '#/components/schemas/Customer'
+        - type: object
+          properties:
+            totalAppointments:
+              type: integer
+              example: 1
+            totalSpent:
+              type: number
+              format: float
+              example: 80.00
+            lastAppointmentDate:
+              type: string
+              format: date-time
+              nullable: true
+
+    Admin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Barber:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e2c31e6e-6c0b-4eb1-995a-0498b8fe66aa"
+        name:
+          type: string
+          example: "Carlos Santos"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://example.com/avatar1.png"
+        specialty:
+          type: string
+          nullable: true
+          example: "Cortes Clássicos"
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        experience:
+          type: string
+          nullable: true
+          example: "8 anos"
+        tags:
+          type: string
+          nullable: true
+          example: "Degradê, Barba, Navalha"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBarberInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "Carlos Santos"
+        avatarUrl:
+          type: string
+          example: "https://example.com/avatar1.png"
+        specialty:
+          type: string
+          example: "Cortes Clássicos"
+        experience:
+          type: string
+          example: "8 anos"
+        tags:
+          type: string
+          example: "Degradê, Barba, Navalha"
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateBarberInput:
+      type: object
+      properties:
+        name:
+          type: string
+        avatarUrl:
+          type: string
+        specialty:
+          type: string
+        experience:
+          type: string
+        tags:
+          type: string
+        isActive:
+          type: boolean
+
+    BarberService:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a81bc81b-dead-4e5d-abff-90865d1e13b1"
+        name:
+          type: string
+          example: "Corte Tradicional"
+        description:
+          type: string
+          nullable: true
+          example: "Corte clássico com máquina e tesoura"
+        price:
+          type: number
+          format: float
+          example: 50.00
+        durationMinutes:
+          type: integer
+          example: 30
+        icon:
+          type: string
+          nullable: true
+          example: "scissors"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBarberServiceInput:
+      type: object
+      required:
+        - name
+        - price
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          example: "Corte Tradicional"
+        description:
+          type: string
+          example: "Corte clássico com máquina e tesoura"
+        price:
+          type: number
+          format: float
+          example: 50.00
+        durationMinutes:
+          type: integer
+          example: 30
+        icon:
+          type: string
+          example: "scissors"
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateBarberServiceInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        durationMinutes:
+          type: integer
+        icon:
+          type: string
+        isActive:
+          type: boolean
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c7f9999a-0e9d-4e92-9442-fca12026ba9b"
+        customerId:
+          type: string
+          format: uuid
+        barberId:
+          type: string
+          format: uuid
+          nullable: true
+        barberServiceId:
+          type: string
+          format: uuid
+        scheduledAt:
+          type: string
+          format: date-time
+          example: "2026-09-30T15:30:00.000Z"
+        price:
+          type: number
+          format: float
+          example: 50.00
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        customer:
+          $ref: '#/components/schemas/Customer'
+        barber:
+          $ref: '#/components/schemas/Barber'
+        barberService:
+          $ref: '#/components/schemas/BarberService'
+
+    CreateAppointmentInput:
+      type: object
+      required:
+        - customerId
+        - barberServiceId
+        - scheduledAt
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        barberServiceId:
+          type: string
+          format: uuid
+          example: "a81bc81b-dead-4e5d-abff-90865d1e13b1"
+        barberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Opcional. Se for nulo, representa 'Sem preferência'."
+          example: "e2c31e6e-6c0b-4eb1-995a-0498b8fe66aa"
+        scheduledAt:
+          type: string
+          format: date-time
+          example: "2026-09-30T15:30:00Z"
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Mensagem descritiva do erro"
+        error:
+          type: string
+          example: "Bad Request"
