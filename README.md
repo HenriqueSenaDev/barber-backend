@@ -48,6 +48,7 @@ docker run -d \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=barberpro \
+  -v barberpro_data:/var/lib/postgresql/data \
   -p 5432:5432 \
   postgres:17
 ```
