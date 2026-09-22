@@ -10,22 +10,50 @@ A gestão manual de horários em barbearias por telefone ou mensagens frequentem
 ## 3. Principais Funcionalidades
 
 ### Cliente
-* Cadastro e login no sistema.
+* Autenticação simplificada por nome e telefone.
 * Visualização dos serviços disponíveis e profissionais da equipe.
-* Realização de agendamentos escolhendo serviço, barbeiro, data e horário disponível.
+* Realização de agendamentos escolhendo serviço, barbeiro (ou sem preferência), data e horário disponível.
 * Visualização e cancelamento dos próprios agendamentos.
 
 ### Administrador
-* Gerenciamento de agendamentos (visualizar, confirmar e cancelar/apagar horários).
-* Gerenciamento de serviços (cadastrar, editar e remover serviços, preços e durações).
+* Autenticação restrita por senha.
+* Gerenciamento de agendamentos (visualizar por status: pendente, confirmado, concluído; confirmar, concluir e cancelar).
+* Gerenciamento de serviços (cadastrar, editar e remover serviços com preços e durações).
 * Gerenciamento da equipe (cadastrar e gerenciar barbeiros/cabeleireiros).
-* Visualização da lista de clientes cadastrados.
+* Visualização e busca da lista de clientes cadastrados.
 
 ## 4. Entidades e Informações do Sistema
-* **Usuário:** Identificador, nome, e-mail, senha, telefone e perfil de acesso (cliente ou administrador).
-* **Barbeiro:** Identificador, nome, especialidade e status (ativo/inativo).
-* **Serviço:** Identificador, nome, descrição, preço e duração estimada em minutos.
-* **Agendamento:** Identificador, cliente associado, barbeiro associado, serviço associado, data/hora e status (pendente, confirmado, cancelado).
+* **Customer (Cliente):** Identificador (`id`), nome (`name`) e telefone (`phone`).
+* **Admin (Administrador):** Identificador (`id`) e senha criptografada (`password`).
+* **Barber (Barbeiro):** Identificador (`id`), nome (`name`), avatar (`avatarUrl`), especialidade (`specialty`), avaliação (`rating`), experiência (`experience`), tags (`tags`) e status ativo (`isActive`).
+* **BarberService (Serviço de Barbearia):** Identificador (`id`), nome (`name`), descrição (`description`), preço (`price`), duração em minutos (`durationMinutes`), ícone (`icon`) e status ativo (`isActive`).
+* **Appointment (Agendamento):** Identificador (`id`), cliente (`customerId`), barbeiro opcional (`barberId`), serviço (`barberServiceId`), data/hora agendada (`scheduledAt`), preço cobrado (`price`) e status (`status`: PENDING, CONFIRMED, COMPLETED, CANCELED).
 
 ## 5. Justificativa da Solução (API + Aplicação Mobile)
 A solução requer uma API centralizada para sincronizar horários em tempo real, evitando agendamentos duplicados no mesmo intervalo e barbeiro, além de garantir o controle de permissões entre clientes e administradores. A aplicação mobile oferece aos clientes acesso rápido e prático para marcar e consultar horários a qualquer momento.
+
+## 6. Configuração do Ambiente e Banco de Dados
+
+### 1. Variáveis de Ambiente
+Copie o arquivo de exemplo para criar seu `.env`:
+```bash
+cp .env.example .env
+```
+
+### 2. Inicializar o Banco de Dados com Docker
+Execute o comando abaixo para iniciar o container do PostgreSQL 17 (`barberpro-db`) compatível com a `DATABASE_URL`:
+```bash
+docker run -d \
+  --name barberpro-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=barberpro \
+  -p 5432:5432 \
+  postgres:17
+```
+
+### 3. Rodar as Migrações
+Com o banco em execução, aplique as migrações do Prisma:
+```bash
+npm run prisma:migrate
+```

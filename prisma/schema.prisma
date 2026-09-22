@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id           String        @id @default(uuid())
+  name         String
+  phone        String        @unique
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  appointments Appointment[]
+
+  @@map("customers")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Barber {
+  id           String        @id @default(uuid())
+  name         String
+  avatarUrl    String?       @map("avatar_url")
+  specialty    String?
+  rating       Float?        @default(5.0)
+  experience   String?
+  tags         String?
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  appointments Appointment[]
+
+  @@map("barbers")
+}
+
+model BarberService {
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  price           Decimal       @db.Decimal(10, 2)
+  durationMinutes Int           @map("duration_minutes")
+  icon            String?
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  appointments    Appointment[]
+
+  @@map("barber_services")
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  customerId      String            @map("customer_id")
+  barberId        String?           @map("barber_id")
+  barberServiceId String            @map("barber_service_id")
+  scheduledAt     DateTime          @map("scheduled_at")
+  price           Decimal           @db.Decimal(10, 2)
+  status          AppointmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  barber        Barber?       @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  barberService BarberService @relation(fields: [barberServiceId], references: [id], onDelete: Restrict)
+
+  @@map("appointments")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}

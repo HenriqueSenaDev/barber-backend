@@ -30,6 +30,9 @@ pids/
 *.pid
 *.seed
 *.pid.lock
+*.db
+*.db-journal
+
 
 # OS files
 .DS_Store
